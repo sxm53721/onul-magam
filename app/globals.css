@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #faf6ef;
+  --color-card: #ffffff;
+  --color-ink: #1f2a24;
+  --color-muted: #6b6f69;
+  --color-line: #e8e1d4;
+  --color-deal: #e2492f;
+  --color-deal-soft: #fdebe6;
+  --color-leaf: #2f5d46;
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  word-break: keep-all;
+}
+
+/* 하단 탭바 + iPhone 홈 인디케이터 여백 */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 72px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
