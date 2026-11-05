@@ -2,19 +2,28 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import DealPhoto from "@/components/DealPhoto";
+import { ErrorBox, Loading } from "@/components/States";
+import { fetchDeal, fetchFavoriteIds, isLive, toggleFavorite } from "@/lib/api";
 import { discountRate, hhmm, kakaoMapSearch, timeLeft, won } from "@/lib/format";
-import { isLive, useAppData } from "@/lib/store";
+import { useLive } from "@/lib/useLive";
 
 export default function DealDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { data, now, toggleFavorite } = useAppData();
+  const { data, loaded, error, now, reload } = useLive(() => fetchDeal(id), `deal-${id}`);
+  const [fav, setFav] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [favError, setFavError] = useState<string | null>(null);
 
-  if (!data) return <p className="py-16 text-center text-muted">불러오는 중…</p>;
-  const deal = data.deals.find((d) => d.id === id);
-  const store = deal && data.stores.find((s) => s.id === deal.storeId);
-  if (!deal || !store)
+  useEffect(() => {
+    if (data) fetchFavoriteIds().then((ids) => setFav(ids.includes(data.store.id))).catch(() => {});
+  }, [data]);
+
+  if (error) return <div className="px-4 pt-6"><ErrorBox message={error} onRetry={reload} /></div>;
+  if (!loaded) return <Loading />;
+  if (!data)
     return (
       <div className="px-4 py-16 text-center">
         <p className="font-semibold">이미 내려간 할인이에요</p>
@@ -24,9 +33,21 @@ export default function DealDetail() {
       </div>
     );
 
+  const { deal, store } = data;
   const live = isLive(deal, now);
-  const fav = data.favorites.includes(store.id);
   const rawFish = store.category === "sashimi";
+
+  async function onFav() {
+    setBusy(true);
+    setFavError(null);
+    try {
+      setFav(await toggleFavorite(store.id, fav));
+    } catch (e) {
+      setFavError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <main>
@@ -62,7 +83,7 @@ export default function DealDetail() {
           <Info label="남은 수량" value={`${deal.quantity}개`} />
         </dl>
 
-        <p className="mt-4 rounded-xl bg-card p-3 text-[13px] leading-relaxed text-muted border border-line">
+        <p className="mt-4 rounded-xl border border-line bg-card p-3 text-[13px] leading-relaxed text-muted">
           결제는 <b className="text-ink">매장에서 직접</b> 해요. 수량이 금방 바뀌니 멀리서 오실 땐 전화로 남았는지 먼저 확인해 주세요.
           {rawFish && (
             <>
@@ -71,11 +92,13 @@ export default function DealDetail() {
             </>
           )}
         </p>
+        {favError && <ErrorBox message={favError} />}
       </section>
 
       <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+64px)] mt-6 flex gap-2 border-t border-line bg-paper px-4 py-3">
         <button
-          onClick={() => toggleFavorite(store.id)}
+          onClick={onFav}
+          disabled={busy}
           className={`h-12 w-14 shrink-0 rounded-xl border text-[20px] ${fav ? "border-deal bg-deal-soft text-deal" : "border-line bg-card"}`}
           aria-label={fav ? "찜 해제" : "가게 찜하기"}
           aria-pressed={fav}

@@ -2,24 +2,23 @@
 
 import { useMemo, useState } from "react";
 import DealCard from "@/components/DealCard";
+import { ErrorBox } from "@/components/States";
+import { fetchTodayDeals, isLive } from "@/lib/api";
 import { discountRate } from "@/lib/format";
-import { isLive, useAppData } from "@/lib/store";
 import { AREAS, CATEGORIES, type Area, type Category } from "@/lib/types";
+import { useLive } from "@/lib/useLive";
 
 type Sort = "ending" | "discount";
 
 export default function HomeFeed() {
-  const { data, now } = useAppData();
+  const { data, error, now, reload } = useLive(fetchTodayDeals, "feed");
   const [area, setArea] = useState<Area | "all">("all");
   const [cat, setCat] = useState<Category | "all">("all");
   const [sort, setSort] = useState<Sort>("ending");
 
   const { live, ended } = useMemo(() => {
     if (!data) return { live: [], ended: [] };
-    const storeOf = new Map(data.stores.map((s) => [s.id, s]));
-    const rows = data.deals
-      .map((deal) => ({ deal, store: storeOf.get(deal.storeId)! }))
-      .filter(({ store }) => store && (area === "all" || store.area === area) && (cat === "all" || store.category === cat));
+    const rows = data.filter(({ store }) => (area === "all" || store.area === area) && (cat === "all" || store.category === cat));
     const live = rows.filter((r) => isLive(r.deal, now));
     live.sort((a, b) =>
       sort === "ending"
@@ -68,7 +67,9 @@ export default function HomeFeed() {
         </div>
       </div>
 
-      {!data ? (
+      {error ? (
+        <ErrorBox message={error} onRetry={reload} />
+      ) : !data ? (
         <p className="py-16 text-center text-muted">불러오는 중…</p>
       ) : live.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line py-12 text-center">

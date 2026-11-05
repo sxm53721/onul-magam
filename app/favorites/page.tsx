@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { isLive, useAppData } from "@/lib/store";
+import { ErrorBox, Loading } from "@/components/States";
+import { fetchFavoriteStores, fetchTodayDeals, isLive, toggleFavorite } from "@/lib/api";
 import { categoryOf } from "@/lib/types";
+import { useLive } from "@/lib/useLive";
+
+async function loadFavorites() {
+  const [stores, deals] = await Promise.all([fetchFavoriteStores(), fetchTodayDeals()]);
+  return { stores, deals };
+}
 
 type PushState = "unsupported" | "ios-needs-install" | "default" | "granted" | "denied";
 
@@ -16,7 +23,7 @@ function detectPushState(): PushState {
 }
 
 export default function Favorites() {
-  const { data, now, toggleFavorite } = useAppData();
+  const { data, loaded, error, now, reload } = useLive(loadFavorites, "favorites");
   const [push, setPush] = useState<PushState | null>(null);
 
   useEffect(() => setPush(detectPushState()), []);
@@ -30,14 +37,23 @@ export default function Favorites() {
 
   async function testNotification() {
     const reg = await navigator.serviceWorker.ready;
-    reg.showNotification("뱃터 동네빵집 마감할인", {
-      body: "빵 아무거나 5개 묶음 9,000원 · 40분 남음",
+    reg.showNotification("오늘마감 테스트 알림", {
+      body: "찜한 가게가 마감할인을 올리면 이렇게 알려드려요",
       icon: "/icons/icon-192.png",
-      data: { url: "/deals/d2" },
+      data: { url: "/" },
     });
   }
 
-  const favStores = data ? data.stores.filter((s) => data.favorites.includes(s.id)) : [];
+  async function unfavorite(storeId: string) {
+    try {
+      await toggleFavorite(storeId, true);
+      reload();
+    } catch {
+      reload();
+    }
+  }
+
+  const favStores = data?.stores ?? [];
 
   return (
     <main className="px-4 pt-6">
@@ -75,7 +91,11 @@ export default function Favorites() {
       </section>
 
       <h2 className="mt-7 mb-2 text-[15px] font-bold">찜한 가게 {favStores.length}곳</h2>
-      {favStores.length === 0 ? (
+      {error ? (
+        <ErrorBox message={error} onRetry={reload} />
+      ) : !loaded ? (
+        <Loading />
+      ) : favStores.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line py-10 text-center text-[13px] text-muted">
           아직 찜한 가게가 없어요.
           <br />
@@ -86,7 +106,7 @@ export default function Favorites() {
       ) : (
         <ul className="flex flex-col divide-y divide-line rounded-2xl border border-line bg-card">
           {favStores.map((s) => {
-            const liveCount = data!.deals.filter((d) => d.storeId === s.id && isLive(d, now)).length;
+            const liveCount = data!.deals.filter(({ deal }) => deal.storeId === s.id && isLive(deal, now)).length;
             const cat = categoryOf(s.category);
             return (
               <li key={s.id} className="flex items-center gap-3 p-3">
@@ -98,7 +118,7 @@ export default function Favorites() {
                     {liveCount > 0 && <b className="ml-1 text-deal">지금 {liveCount}건 할인 중</b>}
                   </p>
                 </Link>
-                <button onClick={() => toggleFavorite(s.id)} className="text-[12px] text-muted underline">
+                <button onClick={() => unfavorite(s.id)} className="text-[12px] text-muted underline">
                   해제
                 </button>
               </li>

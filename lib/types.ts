@@ -14,14 +14,18 @@ export const CATEGORIES: { id: Category; label: string; color: string }[] = [
 export const AREAS = ["운서동", "영종하늘도시", "중산동", "구읍뱃터", "삼목·공항신도시"] as const;
 export type Area = (typeof AREAS)[number];
 
+export type StoreStatus = "pending" | "approved" | "rejected";
+
 export interface Store {
   id: string;
+  ownerId: string | null;
   name: string;
   category: Category;
   area: Area;
   address: string;
   phone: string;
   hours: string;
+  status: StoreStatus;
 }
 
 export type DealStatus = "active" | "soldout";
@@ -31,7 +35,7 @@ export interface Deal {
   storeId: string;
   title: string;
   description?: string;
-  photo?: string; // 프로토타입: dataURL, 실서비스: Supabase Storage URL
+  photo?: string; // Supabase Storage 공개 URL
   originalPrice: number;
   salePrice: number;
   quantity: number;
