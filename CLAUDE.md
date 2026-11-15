@@ -25,7 +25,14 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase(Postgres·Auth�
 - `app/page.tsx` 손님 피드 · `app/deals/[id]` 상세 · `app/stores/[id]` 가게 · `app/favorites` 찜·알림
 - `app/owner` 사장님: 가게 등록 → 승인 대기 → 게시
 - `public/sw.js` 푸시 수신 서비스워커
-- `supabase/schema.sql` → `02_setup.sql` → (선택) `03_seed_demo.sql` 순서로 실행
+- `lib/push.ts` 알림 권한·구독 저장 · `app/api/notify/route.ts` 웹 푸시 발송(Vercel 서버, web-push)
+- `supabase/schema.sql` → `02_setup.sql` → (선택) `03_seed_demo.sql` → `04_push.sql` 순서로 실행
+
+## 자동 알림 흐름
+사장님 게시 → 앱이 `/api/notify` 호출(사장님 토큰) → Supabase `claim_push_targets()`가
+'내 가게·올린 지 30분 이내·아직 안 보냄'을 확인하고 notified_at 기록 후 찜한 손님 구독 목록 반환
+→ 서버가 VAPID 비밀키로 발송, 404/410 주소는 `remove_push_subscriptions()`로 정리.
+서비스 롤 키는 쓰지 않는다. 비밀은 `VAPID_PRIVATE_KEY` 하나(Vercel Secret).
 
 ## 로그인
 카카오 로그인 전까지 **Supabase 익명 로그인**을 쓴다(브라우저마다 사용자 1명).
@@ -34,5 +41,5 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase(Postgres·Auth�
 ## 다음 작업
 - [x] Supabase 연결, 가게 등록·승인, 사진 Storage, 실시간 피드
 - [ ] 카카오 로그인 (Supabase Auth OAuth) + 익명 계정 연결(linkIdentity)
-- [ ] 웹 푸시: VAPID 키 → 구독 저장 → deals insert Webhook → Edge Function `notify-favorites`
+- [x] 웹 푸시: 찜 → 권한 요청 → 구독 저장 → 게시 시 /api/notify 발송
 - [ ] 운영자 가게 승인 화면 (지금은 Table Editor)

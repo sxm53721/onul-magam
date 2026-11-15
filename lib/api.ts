@@ -280,6 +280,32 @@ export async function markSoldOut(dealId: string) {
   fail(error, "품절 처리");
 }
 
+/* ───────── 알림 ───────── */
+
+/** 이 기기의 푸시 구독 정보를 지금 사용자 이름으로 저장 (같은 주소면 그대로 둠) */
+export async function savePushSubscription(sub: { endpoint: string; p256dh: string; auth: string }) {
+  const uid = await ensureSession();
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .upsert({ user_id: uid, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth }, { onConflict: "endpoint", ignoreDuplicates: true });
+  fail(error, "알림 등록");
+}
+
+/** 방금 올린 할인을 찜한 손님들에게 알림 발송 요청. 보낸 사람 수를 돌려준다 */
+export async function notifyFavorites(dealId: string): Promise<number> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return 0;
+  const res = await fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ dealId }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { sent?: number; error?: string };
+  if (!res.ok) throw new Error(body.error ?? `알림 발송 실패 (${res.status})`);
+  return body.sent ?? 0;
+}
+
 /* ───────── 공통 ───────── */
 
 export const isLive = (d: Deal, now = Date.now()) => d.status === "active" && new Date(d.endsAt).getTime() > now;

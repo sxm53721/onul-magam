@@ -10,6 +10,7 @@ import {
   fetchStoreDealsToday,
   isLive,
   markSoldOut,
+  notifyFavorites,
   registerStore,
   uploadPhoto,
   type StoreInput,
@@ -263,8 +264,16 @@ function PostDeal({ store }: { store: Store }) {
         endsAt: new Date(Date.now() + form.endsInMin * 60_000).toISOString(),
       });
       setForm(EMPTY);
-      setToast(`게시했어요. ${hhmm(deal.endsAt)}에 자동으로 내려가요.`);
-      setTimeout(() => setToast(null), 3500);
+      // 찜한 손님에게 알림 — 실패해도 게시는 이미 끝났으니 안내만 다르게
+      let notice = "";
+      try {
+        const sent = await notifyFavorites(deal.id);
+        notice = sent > 0 ? ` 찜한 손님 ${sent}명에게 알렸어요.` : "";
+      } catch {
+        notice = " (알림 발송은 실패했어요)";
+      }
+      setToast(`게시했어요. ${hhmm(deal.endsAt)}에 자동으로 내려가요.${notice}`);
+      setTimeout(() => setToast(null), 4500);
       await loadDeals();
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     } catch (err) {

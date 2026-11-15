@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import DealCard from "@/components/DealCard";
 import { ErrorBox, Loading } from "@/components/States";
 import { fetchFavoriteIds, fetchStore, isLive, toggleFavorite } from "@/lib/api";
+import { afterFavorite } from "@/lib/push";
 import { kakaoMapSearch } from "@/lib/format";
 import { categoryOf } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -32,7 +33,9 @@ export default function StorePage() {
     setBusy(true);
     setFavError(null);
     try {
-      setFav(await toggleFavorite(store.id, fav));
+      const nowFav = await toggleFavorite(store.id, fav);
+      setFav(nowFav);
+      if (nowFav) afterFavorite(); // 처음 찜하면 알림 권한을 물어봄
     } catch (e) {
       setFavError(e instanceof Error ? e.message : String(e));
     } finally {

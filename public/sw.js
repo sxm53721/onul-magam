@@ -17,6 +17,8 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
+      tag: data.url, // 같은 할인 알림이 여러 번 쌓이지 않게
+      vibrate: [120, 60, 120],
       data: { url: data.url },
     })
   );

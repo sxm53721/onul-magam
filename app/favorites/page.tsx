@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ErrorBox, Loading } from "@/components/States";
 import { fetchFavoriteStores, fetchTodayDeals, isLive, toggleFavorite } from "@/lib/api";
+import { enablePush, getPushState, type PushState } from "@/lib/push";
 import { categoryOf } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
 
@@ -12,27 +13,29 @@ async function loadFavorites() {
   return { stores, deals };
 }
 
-type PushState = "unsupported" | "ios-needs-install" | "default" | "granted" | "denied";
-
-function detectPushState(): PushState {
-  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
-  if (ios && !standalone) return "ios-needs-install";
-  if (!("Notification" in window) || !("serviceWorker" in navigator)) return "unsupported";
-  return Notification.permission as PushState;
-}
-
 export default function Favorites() {
   const { data, loaded, error, now, reload } = useLive(loadFavorites, "favorites");
   const [push, setPush] = useState<PushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
-  useEffect(() => setPush(detectPushState()), []);
+  useEffect(() => {
+    const state = getPushState();
+    setPush(state);
+    // 이미 허용된 기기면 구독 정보를 최신으로 (실패하면 화면에 알려서 다시 시도할 수 있게)
+    if (state === "granted") enablePush().catch((e) => setPushError(e instanceof Error ? e.message : String(e)));
+  }, []);
 
-  async function enablePush() {
-    const result = await Notification.requestPermission();
-    setPush(result as PushState);
-    // TODO(2단계): registration.pushManager.subscribe({ applicationServerKey: VAPID 공개키 })
-    //              결과를 Supabase push_subscriptions 테이블에 저장
+  async function onEnablePush() {
+    setPushBusy(true);
+    setPushError(null);
+    try {
+      setPush(await enablePush());
+    } catch (e) {
+      setPushError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPushBusy(false);
+    }
   }
 
   async function testNotification() {
@@ -74,9 +77,10 @@ export default function Favorites() {
           </div>
         )}
         {push === "unsupported" && <p className="mt-2 text-[13px] text-muted">이 브라우저는 알림을 지원하지 않아요. 크롬이나 사파리에서 열어 주세요.</p>}
+        {push === "no-key" && <p className="mt-2 text-[13px] text-muted">알림 기능 준비 중이에요. (운영자: VAPID 공개키 환경변수 확인)</p>}
         {push === "default" && (
-          <button onClick={enablePush} className="mt-3 h-11 w-full rounded-xl bg-deal font-semibold text-white">
-            마감할인 알림 켜기
+          <button onClick={onEnablePush} disabled={pushBusy} className="mt-3 h-11 w-full rounded-xl bg-deal font-semibold text-white">
+            {pushBusy ? "설정 중…" : "마감할인 알림 켜기"}
           </button>
         )}
         {push === "denied" && <p className="mt-2 text-[13px] text-muted">알림이 꺼져 있어요. 휴대폰 설정 › 브라우저 › 알림에서 허용해 주세요.</p>}
@@ -86,6 +90,11 @@ export default function Favorites() {
             <button onClick={testNotification} className="rounded-lg border border-line px-3 py-1.5 text-[12px]">
               테스트 알림 보내기
             </button>
+          </div>
+        )}
+        {pushError && (
+          <div className="mt-3">
+            <ErrorBox message={pushError} onRetry={onEnablePush} />
           </div>
         )}
       </section>
