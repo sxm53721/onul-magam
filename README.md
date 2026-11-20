@@ -21,5 +21,6 @@ npm run dev
 4. Authentication › Sign In / Providers › **Allow anonymous sign-ins** 켜기
 
 ## 가게 승인 (운영자)
-사장님이 앱에서 가게를 등록하면 `stores` 테이블에 `pending` 으로 들어옵니다.
-Supabase › Table Editor › stores 에서 해당 줄의 `status` 를 `approved` 로 바꾸면 할인을 올릴 수 있어요.
+운영자 휴대폰에서 사장님 탭 → 위쪽 **운영자 화면** (또는 `/admin`) → 승인 대기 탭에서 **승인/반려**.
+사장님이 '승인되면 알림 받기'를 켜 두었다면 결과가 자동으로 알림으로 가요.
+운영자 지정은 `supabase/06_make_admin.sql`.

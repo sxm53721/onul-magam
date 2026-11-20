@@ -112,7 +112,9 @@ export async function currentUserId(): Promise<string | null> {
 
 /* ───────── 손님 ───────── */
 
-const DEAL_WITH_STORE = "*, store:stores!inner(*)";
+// 가게는 공개 칸만 읽는다 (사업자등록번호 business_no 는 운영자 전용 → DB가 * 조회를 거절함)
+const STORE_COLS = "id, owner_id, name, category, area, address, phone, hours, status";
+const DEAL_WITH_STORE = `*, store:stores!inner(${STORE_COLS})`;
 
 /** 오늘 올라온 모든 할인 (진행 중 + 끝난 것). 승인 안 된 가게는 RLS가 걸러준다 */
 export async function fetchTodayDeals(): Promise<DealWithStore[]> {
@@ -134,7 +136,7 @@ export async function fetchDeal(id: string): Promise<DealWithStore | null> {
 
 export async function fetchStore(id: string): Promise<{ store: Store; deals: Deal[] } | null> {
   const [{ data: s, error: e1 }, { data: d, error: e2 }] = await Promise.all([
-    supabase.from("stores").select("*").eq("id", id).maybeSingle(),
+    supabase.from("stores").select(STORE_COLS).eq("id", id).maybeSingle(),
     supabase.from("deals").select("*").eq("store_id", id).gte("created_at", startOfTodayKST()).order("created_at", { ascending: false }),
   ]);
   fail(e1, "가게 불러오기");
@@ -154,7 +156,7 @@ export async function fetchFavoriteIds(): Promise<string[]> {
 
 export async function fetchFavoriteStores(): Promise<Store[]> {
   if (!(await currentUserId())) return [];
-  const { data, error } = await supabase.from("favorites").select("store:stores(*)").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("favorites").select(`store:stores(${STORE_COLS})`).order("created_at", { ascending: false });
   fail(error, "찜한 가게 불러오기");
   return ((data ?? []) as unknown as { store: StoreRow | null }[]).filter((r) => r.store).map((r) => toStore(r.store!));
 }
@@ -176,7 +178,7 @@ export async function toggleFavorite(storeId: string, isFav: boolean): Promise<b
 
 export async function fetchMyStore(): Promise<Store | null> {
   const uid = await ensureSession();
-  const { data, error } = await supabase.from("stores").select("*").eq("owner_id", uid).maybeSingle();
+  const { data, error } = await supabase.from("stores").select(STORE_COLS).eq("owner_id", uid).maybeSingle();
   fail(error, "내 가게 불러오기");
   return data ? toStore(data as StoreRow) : null;
 }
@@ -205,7 +207,7 @@ export async function registerStore(input: StoreInput): Promise<Store> {
       hours: input.hours || null,
       business_no: input.businessNo || null,
     })
-    .select("*")
+    .select(STORE_COLS)
     .single();
   fail(error, "가게 등록");
   return toStore(data as StoreRow);
@@ -304,6 +306,71 @@ export async function notifyFavorites(dealId: string): Promise<number> {
   const body = (await res.json().catch(() => ({}))) as { sent?: number; error?: string };
   if (!res.ok) throw new Error(body.error ?? `알림 발송 실패 (${res.status})`);
   return body.sent ?? 0;
+}
+
+/* ───────── 운영자 ───────── */
+
+/** 지금 로그인한 사용자가 운영자인가 (계정을 새로 만들지 않음) */
+export async function isAdmin(): Promise<boolean> {
+  if (!(await currentUserId())) return false;
+  const { data, error } = await supabase.rpc("is_admin");
+  if (error) return false;
+  return data === true;
+}
+
+export interface AdminStore {
+  id: string;
+  name: string;
+  category: Category;
+  area: Area;
+  address: string;
+  phone: string;
+  hours: string | null;
+  businessNo: string | null;
+  status: Store["status"];
+  createdAt: string;
+  reviewedAt: string | null;
+  ownerHasPush: boolean;
+}
+
+export async function adminListStores(): Promise<AdminStore[]> {
+  const { data, error } = await supabase.rpc("admin_list_stores");
+  fail(error, "가게 목록 불러오기");
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    category: r.category as Category,
+    area: r.area as Area,
+    address: r.address as string,
+    phone: r.phone as string,
+    hours: (r.hours as string | null) ?? null,
+    businessNo: (r.business_no as string | null) ?? null,
+    status: r.status as Store["status"],
+    createdAt: r.created_at as string,
+    reviewedAt: (r.reviewed_at as string | null) ?? null,
+    ownerHasPush: Boolean(r.owner_has_push),
+  }));
+}
+
+/** 승인·반려(또는 대기로 되돌리기). 사장님께 알림 보낸 기기 수를 돌려준다 */
+export async function reviewStore(storeId: string, status: Store["status"]): Promise<number> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("로그인이 필요해요");
+  const res = await fetch("/api/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ storeId, status }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { sent?: number; error?: string };
+  if (!res.ok) throw new Error(body.error ?? `처리 실패 (${res.status})`);
+  return body.sent ?? 0;
+}
+
+/** 운영자 화면 배지용: 승인 대기 가게 수 */
+export async function countPendingStores(): Promise<number> {
+  const list = await adminListStores();
+  return list.filter((s) => s.status === "pending").length;
 }
 
 /* ───────── 공통 ───────── */

@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import DealCard from "@/components/DealCard";
 import { ErrorBox, Loading } from "@/components/States";
 import {
+  countPendingStores,
   createDeal,
+  isAdmin,
   fetchLastDeal,
   fetchMyStore,
   fetchStoreDealsToday,
@@ -16,6 +19,7 @@ import {
   type StoreInput,
 } from "@/lib/api";
 import { discountRate, hhmm, won } from "@/lib/format";
+import { enablePush, getPushState, type PushState } from "@/lib/push";
 import { supabaseConfigured } from "@/lib/supabase";
 import { AREAS, CATEGORIES, type Deal, type Store } from "@/lib/types";
 
@@ -39,13 +43,31 @@ export default function OwnerPage() {
     }
   }, []);
 
+  const [pending, setPending] = useState<number | null>(null); // 운영자일 때만 숫자
+
   useEffect(() => {
     load();
+    // 운영자라면 승인 대기 수를 보여 준다
+    isAdmin()
+      .then((ok) => (ok ? countPendingStores().then(setPending) : null))
+      .catch(() => {});
+    // 앱으로 돌아오면 다시 확인 (승인 알림을 받고 들어온 경우 등)
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [load]);
 
   return (
     <main className="px-4 pt-6">
-      <p className="text-[13px] font-semibold text-leaf">사장님</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-leaf">사장님</p>
+        {pending !== null && (
+          <Link href="/admin" className="flex items-center gap-1.5 rounded-full border border-ink bg-card px-3 py-1 text-[12px] font-semibold">
+            운영자 화면
+            {pending > 0 && <span className="rounded-full bg-deal px-1.5 text-[11px] text-white">승인 대기 {pending}</span>}
+          </Link>
+        )}
+      </div>
       {error ? (
         <>
           <h1 className="text-[24px] font-extrabold">사장님 화면</h1>
@@ -138,6 +160,29 @@ function RegisterStore({ onDone }: { onDone: (s: Store) => void }) {
 
 function PendingStore({ store, onRefresh }: { store: Store; onRefresh: () => void }) {
   const rejected = store.status === "rejected";
+  const [push, setPush] = useState<PushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const s = getPushState();
+    setPush(s);
+    // 이미 허용된 기기라면 이 사장님 계정으로 알림 등록을 맞춰 둔다
+    if (s === "granted") enablePush().catch(() => {});
+  }, []);
+
+  async function onEnablePush() {
+    setPushBusy(true);
+    setPushError(null);
+    try {
+      setPush(await enablePush());
+    } catch (e) {
+      setPushError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   return (
     <>
       <h1 className="text-[24px] font-extrabold">{store.name}</h1>
@@ -156,7 +201,25 @@ function PendingStore({ store, onRefresh }: { store: Store; onRefresh: () => voi
           <dt className="text-muted">전화</dt>
           <dd>{store.phone}</dd>
         </dl>
-        <button onClick={onRefresh} className="mt-4 h-11 w-full rounded-xl border border-ink font-semibold">
+        {!rejected && (
+          <div className="mt-4 rounded-xl bg-paper p-3 text-[13px]">
+            {push === "granted" ? (
+              <p className="font-semibold text-leaf">✓ 승인되면 이 휴대폰으로 알려 드려요</p>
+            ) : push === "default" ? (
+              <button onClick={onEnablePush} disabled={pushBusy} className="h-11 w-full rounded-xl bg-deal font-semibold text-white disabled:opacity-50">
+                {pushBusy ? "설정 중…" : "승인되면 알림 받기"}
+              </button>
+            ) : push === "ios-needs-install" ? (
+              <p className="text-muted">아이폰은 홈 화면에 추가한 앱에서 열어야 승인 알림을 받을 수 있어요.</p>
+            ) : push === "denied" ? (
+              <p className="text-muted">알림이 꺼져 있어요. 휴대폰 설정에서 알림을 허용하면 승인 소식을 받을 수 있어요.</p>
+            ) : push === null ? null : (
+              <p className="text-muted">이 기기에서는 알림을 받을 수 없어요. 이 화면에서 다시 확인해 주세요.</p>
+            )}
+            {pushError && <p className="mt-2 text-deal">{pushError}</p>}
+          </div>
+        )}
+        <button onClick={onRefresh} className="mt-3 h-11 w-full rounded-xl border border-ink font-semibold">
           승인됐는지 다시 확인
         </button>
       </div>
