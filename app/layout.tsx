@@ -4,9 +4,9 @@ import RegisterSW from "@/components/RegisterSW";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "오늘마감 — 영종도 마감할인",
+  title: "마감할인 — 영종도 동네 가게",
   description: "영종도 동네 횟집·과일·채소·빵·떡집의 오늘 마감할인을 알림으로 받아보세요.",
-  appleWebApp: { capable: true, title: "오늘마감", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "마감할인", statusBarStyle: "default" },
   icons: {
     icon: "/icons/icon-192.png",
     apple: "/icons/apple-touch-icon.png",

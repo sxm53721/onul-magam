@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import KakaoButton from "@/components/KakaoButton";
 import { ErrorBox, Loading } from "@/components/States";
 import { fetchFavoriteStores, fetchTodayDeals, isLive, toggleFavorite } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { enablePush, getPushState, type PushState } from "@/lib/push";
 import { categoryOf } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -18,6 +20,7 @@ export default function Favorites() {
   const [push, setPush] = useState<PushState | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
+  const auth = useAuth();
 
   useEffect(() => {
     const state = getPushState();
@@ -40,7 +43,7 @@ export default function Favorites() {
 
   async function testNotification() {
     const reg = await navigator.serviceWorker.ready;
-    reg.showNotification("오늘마감 테스트 알림", {
+    reg.showNotification("마감할인 테스트 알림", {
       body: "찜한 가게가 마감할인을 올리면 이렇게 알려드려요",
       icon: "/icons/icon-192.png",
       data: { url: "/" },
@@ -72,7 +75,7 @@ export default function Favorites() {
             <ol className="mt-2 list-decimal pl-5 text-muted">
               <li>사파리 아래쪽 공유 버튼(□↑)을 누르고</li>
               <li>‘홈 화면에 추가’를 누른 뒤</li>
-              <li>홈 화면의 ‘오늘마감’으로 다시 열어 주세요</li>
+              <li>홈 화면의 ‘마감할인’으로 다시 열어 주세요</li>
             </ol>
           </div>
         )}
@@ -98,6 +101,14 @@ export default function Favorites() {
           </div>
         )}
       </section>
+
+      {auth?.isAnonymous && auth.userId && (data?.stores.length ?? 0) > 0 && (
+        <section className="mt-3 rounded-2xl border border-line bg-card p-4">
+          <p className="text-[14px] font-bold">찜 목록을 카카오에 보관하기 (선택)</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">카카오로 로그인해 두면 휴대폰을 바꾸거나 다른 기기에서 열어도 찜한 가게와 알림이 그대로 유지돼요.</p>
+          <KakaoButton next="/favorites" label="카카오로 로그인" className="mt-3" />
+        </section>
+      )}
 
       <h2 className="mt-7 mb-2 text-[15px] font-bold">찜한 가게 {favStores.length}곳</h2>
       {error ? (

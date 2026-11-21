@@ -8,7 +8,7 @@ import { supabaseConfigured } from "@/lib/supabase";
 import { categoryOf, type StoreStatus } from "@/lib/types";
 
 // 운영자 화면 — 휴대폰에서 가게 등록 신청을 확인하고 승인·반려한다.
-// 승인·반려하면 /api/review 가 사장님 기기로 결과 알림을 보낸다.
+// 승인·반려하면 /api/review 가 점주 기기로 결과 알림을 보낸다.
 
 const TABS: { id: StoreStatus; label: string }[] = [
   { id: "pending", label: "승인 대기" },
@@ -69,8 +69,8 @@ export default function AdminPage() {
         status === "pending"
           ? ""
           : sent > 0
-            ? " · 사장님께 알림을 보냈어요"
-            : " · 사장님이 알림을 켜지 않아 직접 연락이 필요해요";
+            ? " · 점주에게 알림을 보냈어요"
+            : " · 점주가 알림을 켜지 않아 직접 연락이 필요해요";
       setToast(`${store.name} ${verb}${notice}`);
       setTimeout(() => setToast(null), 4500);
       await load();
@@ -89,7 +89,7 @@ export default function AdminPage() {
           <h1 className="text-[24px] font-extrabold">가게 승인</h1>
         </div>
         <Link href="/owner" className="mt-1 rounded-lg border border-line bg-card px-3 py-1.5 text-[12px]">
-          사장님 화면
+          점주 화면
         </Link>
       </div>
 
@@ -164,7 +164,11 @@ export default function AdminPage() {
                       )}
                       <dt className="text-muted">사업자번호</dt>
                       <dd>{s.businessNo || <span className="text-muted">입력 안 함</span>}</dd>
-                      <dt className="text-muted">사장님 알림</dt>
+                      <dt className="text-muted">점주 계정</dt>
+                      <dd className={s.ownerIsAnonymous ? "text-deal" : "text-leaf"}>
+                        {s.ownerIsAnonymous ? "임시 계정 · 카카오 연결 전" : "카카오 로그인"}
+                      </dd>
+                      <dt className="text-muted">점주 알림</dt>
                       <dd className={s.ownerHasPush ? "text-leaf" : "text-muted"}>
                         {s.ownerHasPush ? "켜짐 · 결과가 자동으로 전달돼요" : "꺼짐 · 결과를 직접 알려 주세요"}
                       </dd>

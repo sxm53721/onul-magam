@@ -331,6 +331,7 @@ export interface AdminStore {
   createdAt: string;
   reviewedAt: string | null;
   ownerHasPush: boolean;
+  ownerIsAnonymous: boolean; // 점주가 아직 카카오를 연결하지 않은 임시 계정인가
 }
 
 export async function adminListStores(): Promise<AdminStore[]> {
@@ -349,6 +350,7 @@ export async function adminListStores(): Promise<AdminStore[]> {
     createdAt: r.created_at as string,
     reviewedAt: (r.reviewed_at as string | null) ?? null,
     ownerHasPush: Boolean(r.owner_has_push),
+    ownerIsAnonymous: r.owner_is_anonymous === undefined ? false : Boolean(r.owner_is_anonymous),
   }));
 }
 
@@ -365,6 +367,18 @@ export async function reviewStore(storeId: string, status: Store["status"]): Pro
   const body = (await res.json().catch(() => ({}))) as { sent?: number; error?: string };
   if (!res.ok) throw new Error(body.error ?? `처리 실패 (${res.status})`);
   return body.sent ?? 0;
+}
+
+/** 새 가게를 등록한 직후: 운영자에게 알림 요청 (실패해도 등록은 이미 끝남) */
+export async function notifyAdminsNewStore(storeId: string): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return;
+  await fetch("/api/store-registered", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ storeId }),
+  }).catch(() => {});
 }
 
 /** 운영자 화면 배지용: 승인 대기 가게 수 */

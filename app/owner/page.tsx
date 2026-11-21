@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import DealCard from "@/components/DealCard";
+import KakaoButton from "@/components/KakaoButton";
 import { ErrorBox, Loading } from "@/components/States";
 import {
   countPendingStores,
@@ -13,22 +14,25 @@ import {
   fetchStoreDealsToday,
   isLive,
   markSoldOut,
+  notifyAdminsNewStore,
   notifyFavorites,
   registerStore,
   uploadPhoto,
   type StoreInput,
 } from "@/lib/api";
+import { signOut, useAuth } from "@/lib/auth";
 import { discountRate, hhmm, won } from "@/lib/format";
 import { enablePush, getPushState, type PushState } from "@/lib/push";
 import { supabaseConfigured } from "@/lib/supabase";
 import { AREAS, CATEGORIES, type Deal, type Store } from "@/lib/types";
 
-// 사장님 화면
-//  가게 없음 → 가게 등록 / 승인 대기 → 안내 / 승인됨 → 30초 게시 폼 + 오늘 올린 할인
+// 사장님 탭 (점주 화면)
+//  카카오 로그인 → 가게 없음 → 가게 등록 / 승인 대기 → 안내 / 승인됨 → 30초 게시 폼 + 오늘 올린 할인
 
 export default function OwnerPage() {
   const [store, setStore] = useState<Store | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const auth = useAuth();
 
   const load = useCallback(async () => {
     if (!supabaseConfigured) {
@@ -68,6 +72,7 @@ export default function OwnerPage() {
           </Link>
         )}
       </div>
+      {!error && store !== undefined && auth && <AccountBar anonymous={auth.isAnonymous} nickname={auth.nickname} hasStore={store !== null} />}
       {error ? (
         <>
           <h1 className="text-[24px] font-extrabold">사장님 화면</h1>
@@ -76,13 +81,61 @@ export default function OwnerPage() {
       ) : store === undefined ? (
         <Loading />
       ) : store === null ? (
-        <RegisterStore onDone={setStore} />
+        auth === null ? (
+          <Loading />
+        ) : auth.isAnonymous ? (
+          <KakaoGate />
+        ) : (
+          <RegisterStore onDone={setStore} />
+        )
       ) : store.status !== "approved" ? (
         <PendingStore store={store} onRefresh={load} />
       ) : (
         <PostDeal store={store} />
       )}
     </main>
+  );
+}
+
+/* ───────── 0. 로그인 ───────── */
+
+/** 가게가 없는 임시 계정: 카카오 로그인부터 */
+function KakaoGate() {
+  return (
+    <>
+      <h1 className="text-[24px] font-extrabold">가게 등록하기</h1>
+      <div className="mt-4 rounded-2xl border border-line bg-card p-5">
+        <p className="text-[15px] font-bold">먼저 카카오로 로그인해 주세요</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+          카카오 계정에 가게를 연결해 두면, 휴대폰을 바꾸거나 앱을 다시 설치해도 가게와 올린 할인이 그대로 남아요. 이메일이나 전화번호는 받지 않아요.
+        </p>
+        <KakaoButton next="/owner" className="mt-4" />
+      </div>
+    </>
+  );
+}
+
+/** 로그인 상태 표시줄 */
+function AccountBar({ anonymous, nickname, hasStore }: { anonymous: boolean; nickname: string | null; hasStore: boolean }) {
+  if (anonymous) {
+    // 임시 계정인데 이미 가게가 있는 점주 (카카오 이전에 등록한 경우): 연결을 권한다
+    if (!hasStore) return null;
+    return (
+      <div className="mt-3 mb-5 rounded-2xl border border-[#E8D27A] bg-[#FFF9D6] p-4">
+        <p className="text-[14px] font-bold">가게를 카카오 계정에 연결해 주세요</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-muted">지금은 이 휴대폰에만 저장된 임시 계정이에요. 연결하면 휴대폰을 바꿔도 가게가 유지되고, 다른 기기에서도 같은 카카오로 들어올 수 있어요.</p>
+        <KakaoButton next="/owner" label="카카오 계정 연결하기" className="mt-3" />
+      </div>
+    );
+  }
+  return (
+    <p className="mt-2 flex items-center gap-2 text-[12px] text-muted">
+      <span className="rounded bg-[#FEE500] px-1.5 py-0.5 text-[11px] font-semibold text-[#191919]">카카오</span>
+      {nickname ? `${nickname} 님` : "로그인됨"}
+      <button onClick={signOut} className="ml-auto underline">
+        로그아웃
+      </button>
+    </p>
   );
 }
 
@@ -101,7 +154,9 @@ function RegisterStore({ onDone }: { onDone: (s: Store) => void }) {
     setBusy(true);
     setError(null);
     try {
-      onDone(await registerStore({ ...f, name: f.name.trim(), address: f.address.trim(), phone: f.phone.trim() }));
+      const created = await registerStore({ ...f, name: f.name.trim(), address: f.address.trim(), phone: f.phone.trim() });
+      notifyAdminsNewStore(created.id); // 운영자에게 '새 가게 승인 요청' 알림
+      onDone(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "오늘마감 — 영종도 마감할인",
-    short_name: "오늘마감",
+    name: "마감할인 — 영종도 동네 가게",
+    short_name: "마감할인",
     description: "동네 가게의 오늘 마감할인을 알림으로 받아보세요.",
     start_url: "/",
     display: "standalone",
