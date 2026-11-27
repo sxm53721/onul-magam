@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import DealPhoto from "@/components/DealPhoto";
 import { ErrorBox, Loading } from "@/components/States";
 import { fetchDeal, fetchFavoriteIds, isLive, toggleFavorite } from "@/lib/api";
+import KakaoNudge from "@/components/KakaoNudge";
+import { decideNudge, type NudgeStage } from "@/lib/nudge";
 import { afterFavorite } from "@/lib/push";
 import { discountRate, hhmm, kakaoMapSearch, timeLeft, won } from "@/lib/format";
 import { useLive } from "@/lib/useLive";
@@ -17,6 +19,7 @@ export default function DealDetail() {
   const [fav, setFav] = useState(false);
   const [busy, setBusy] = useState(false);
   const [favError, setFavError] = useState<string | null>(null);
+  const [nudge, setNudge] = useState<NudgeStage | null>(null);
 
   useEffect(() => {
     if (data) fetchFavoriteIds().then((ids) => setFav(ids.includes(data.store.id))).catch(() => {});
@@ -44,7 +47,13 @@ export default function DealDetail() {
     try {
       const nowFav = await toggleFavorite(store.id, fav);
       setFav(nowFav);
-      if (nowFav) afterFavorite(); // 처음 찜하면 알림 권한을 물어봄
+      if (nowFav) {
+        // 처음 찜하면 알림 권한을 묻고, 끝나면 (임시 계정 손님에게만) 카카오 보관을 권한다
+        afterFavorite()
+          .then(decideNudge)
+          .then(setNudge)
+          .catch(() => {});
+      }
     } catch (e) {
       setFavError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -120,6 +129,7 @@ export default function DealDetail() {
           길찾기
         </a>
       </div>
+      {nudge && <KakaoNudge stage={nudge} next={`/deals/${id}`} onClose={() => setNudge(null)} />}
     </main>
   );
 }

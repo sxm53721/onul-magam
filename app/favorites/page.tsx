@@ -102,7 +102,7 @@ export default function Favorites() {
         )}
       </section>
 
-      {auth?.isAnonymous && auth.userId && (data?.stores.length ?? 0) > 0 && (
+      {auth?.isAnonymous && auth.userId && (
         <section className="mt-3 rounded-2xl border border-line bg-card p-4">
           <p className="text-[14px] font-bold">찜 목록을 카카오에 보관하기 (선택)</p>
           <p className="mt-1 text-[12px] leading-relaxed text-muted">카카오로 로그인해 두면 휴대폰을 바꾸거나 다른 기기에서 열어도 찜한 가게와 알림이 그대로 유지돼요.</p>

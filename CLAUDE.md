@@ -57,7 +57,12 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase(Postgres·Auth�
 - **점주는 카카오 로그인 후에만 가게 등록 가능** (07_kakao.sql 의 stores insert 정책이 is_anonymous 를 막음).
 - 임시 계정에서 카카오를 누르면 `linkIdentity` 로 **같은 사용자 번호에 카카오를 연결** → 가게·찜·운영자 권한 유지.
   그 카카오가 이미 다른 기기에 연결돼 있으면 `/auth/callback` 이 '그 카카오로 로그인'(signInWithOAuth)을 안내한다.
-- 이메일은 받지 않는다 (카카오 동의항목: 닉네임 필수, 프로필 사진 선택 / Supabase: Allow users without an email, Allow manual linking).
+- 카카오 동의항목: 닉네임 필수, 프로필 사진·이메일 **선택**(비즈 앱 전환 필요 — Supabase 가 account_email 을 항상 요청해 KOE205 가 나므로).
+  Supabase: Allow users without an email, Allow manual linking. 개인정보처리방침에 '이메일(선택)' 기재 필요.
+- 닉네임: 카카오를 '연결'한 계정은 user_metadata 가 아니라 identities[].identity_data 에 있다 (`pickNickname`).
+- **손님 로그인은 강요하지 않고 권한다** (`lib/nudge.ts`, `components/KakaoNudge.tsx`): 첫 찜 직후 1회, 찜 3곳째 1회,
+  '나중에'는 다시 묻지 않음(localStorage). 찜·알림 탭에는 임시 계정이면 카카오 카드를 항상 보여 준다.
+  피드·상세·찜하기는 로그인 없이 그대로.
 - 코드: `lib/auth.ts`(connectKakao·signInKakao·useAuth), `components/KakaoButton.tsx`, `app/auth/callback/page.tsx`
 - 새 가게 등록 → `/api/store-registered` → `claim_admin_targets()` → 운영자에게 '새 가게 승인 요청' 푸시
 - 확인 필요: 아이폰 홈 화면 앱에서 카카오 로그인 후 앱으로 제대로 돌아오는지

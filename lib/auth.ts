@@ -26,10 +26,29 @@ export async function getAuthInfo(): Promise<AuthInfo> {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
   if (!user) return { userId: null, isAnonymous: true, nickname: null };
-  const m = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const nickname =
-    (m.name as string) || (m.full_name as string) || (m.nickname as string) || (m.preferred_username as string) || (m.user_name as string) || null;
-  return { userId: user.id, isAnonymous: user.is_anonymous ?? false, nickname };
+  const isAnonymous = user.is_anonymous ?? false;
+  let nickname = pickNickname(user);
+  if (!nickname && !isAnonymous) {
+    // 저장된 세션에 연결 정보가 없으면 서버에서 한 번 더 확인
+    const { data: ids } = await supabase.auth.getUserIdentities().catch(() => ({ data: null }));
+    nickname = pickNickname({ identities: ids?.identities ?? [] });
+  }
+  return { userId: user.id, isAnonymous, nickname };
+}
+
+/**
+ * 닉네임 찾기.
+ * - 카카오로 바로 로그인한 계정: user_metadata 에 들어 있음
+ * - 임시 계정에 카카오를 '연결'한 계정: user_metadata 는 비어 있고, identities[].identity_data 에 들어 있음
+ */
+function pickNickname(user: { user_metadata?: unknown; identities?: { provider: string; identity_data?: unknown }[] }): string | null {
+  const from = (m: unknown) => {
+    const o = (m ?? {}) as Record<string, unknown>;
+    const v = o.name || o.full_name || o.nickname || o.preferred_username || o.user_name;
+    return typeof v === "string" && v.trim() ? v.trim() : null;
+  };
+  const kakao = user.identities?.find((i) => i.provider === "kakao");
+  return from(user.user_metadata) ?? from(kakao?.identity_data) ?? null;
 }
 
 /** 카카오로 시작하기: 임시 계정이면 연결, 아니면 로그인. 카카오 화면으로 이동한다 */

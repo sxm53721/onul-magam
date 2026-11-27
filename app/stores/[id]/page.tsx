@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import DealCard from "@/components/DealCard";
 import { ErrorBox, Loading } from "@/components/States";
 import { fetchFavoriteIds, fetchStore, isLive, toggleFavorite } from "@/lib/api";
+import KakaoNudge from "@/components/KakaoNudge";
+import { decideNudge, type NudgeStage } from "@/lib/nudge";
 import { afterFavorite } from "@/lib/push";
 import { kakaoMapSearch } from "@/lib/format";
 import { categoryOf } from "@/lib/types";
@@ -16,6 +18,7 @@ export default function StorePage() {
   const [fav, setFav] = useState(false);
   const [busy, setBusy] = useState(false);
   const [favError, setFavError] = useState<string | null>(null);
+  const [nudge, setNudge] = useState<NudgeStage | null>(null);
 
   useEffect(() => {
     fetchFavoriteIds().then((ids) => setFav(ids.includes(id))).catch(() => {});
@@ -35,7 +38,13 @@ export default function StorePage() {
     try {
       const nowFav = await toggleFavorite(store.id, fav);
       setFav(nowFav);
-      if (nowFav) afterFavorite(); // 처음 찜하면 알림 권한을 물어봄
+      if (nowFav) {
+        // 처음 찜하면 알림 권한을 묻고, 끝나면 (임시 계정 손님에게만) 카카오 보관을 권한다
+        afterFavorite()
+          .then(decideNudge)
+          .then(setNudge)
+          .catch(() => {});
+      }
     } catch (e) {
       setFavError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -87,6 +96,7 @@ export default function StorePage() {
           ))}
         </ul>
       )}
+      {nudge && <KakaoNudge stage={nudge} next={`/stores/${id}`} onClose={() => setNudge(null)} />}
     </main>
   );
 }
