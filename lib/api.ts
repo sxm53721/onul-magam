@@ -387,6 +387,62 @@ export async function countPendingStores(): Promise<number> {
   return list.filter((s) => s.status === "pending").length;
 }
 
+/* ───────── 운영 현황 (운영자) ───────── */
+
+export interface StoreStat {
+  storeId: string;
+  name: string;
+  category: Category;
+  area: Area;
+  deals7d: number;
+  deals28d: number;
+  soldout28d: number;
+  favorites: number;
+  favoritesWithPush: number;
+  activeWeeks4: number;
+  lastDealAt: string | null;
+}
+
+export interface WeekStat {
+  weekStart: string; // YYYY-MM-DD (월요일)
+  deals: number;
+  soldout: number;
+  activeStores: number;
+  newFavorites: number;
+}
+
+export async function adminStats(): Promise<{ stores: StoreStat[]; weeks: WeekStat[] }> {
+  const [{ data: s, error: e1 }, { data: w, error: e2 }] = await Promise.all([
+    supabase.rpc("admin_store_stats"),
+    supabase.rpc("admin_weekly_stats"),
+  ]);
+  fail(e1, "가게별 현황 불러오기");
+  fail(e2, "주별 현황 불러오기");
+  const n = (v: unknown) => Number(v ?? 0);
+  return {
+    stores: ((s ?? []) as Record<string, unknown>[]).map((r) => ({
+      storeId: r.store_id as string,
+      name: r.name as string,
+      category: r.category as Category,
+      area: r.area as Area,
+      deals7d: n(r.deals_7d),
+      deals28d: n(r.deals_28d),
+      soldout28d: n(r.soldout_28d),
+      favorites: n(r.favorites),
+      favoritesWithPush: n(r.favorites_with_push),
+      activeWeeks4: n(r.active_weeks_4),
+      lastDealAt: (r.last_deal_at as string | null) ?? null,
+    })),
+    weeks: ((w ?? []) as Record<string, unknown>[]).map((r) => ({
+      weekStart: String(r.week_start),
+      deals: n(r.deals),
+      soldout: n(r.soldout),
+      activeStores: n(r.active_stores),
+      newFavorites: n(r.new_favorites),
+    })),
+  };
+}
+
 /* ───────── 계정 삭제 ───────── */
 
 /**

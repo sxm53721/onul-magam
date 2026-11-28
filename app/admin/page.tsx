@@ -88,9 +88,14 @@ export default function AdminPage() {
           <p className="text-[13px] font-semibold text-leaf">운영자</p>
           <h1 className="text-[24px] font-extrabold">가게 승인</h1>
         </div>
-        <Link href="/owner" className="mt-1 rounded-lg border border-line bg-card px-3 py-1.5 text-[12px]">
-          점주 화면
-        </Link>
+        <div className="mt-1 flex gap-1.5">
+          <Link href="/admin/stats" className="rounded-lg border border-ink bg-card px-3 py-1.5 text-[12px] font-semibold">
+            운영 현황
+          </Link>
+          <Link href="/owner" className="rounded-lg border border-line bg-card px-3 py-1.5 text-[12px]">
+            점주 화면
+          </Link>
+        </div>
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}

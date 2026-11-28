@@ -40,10 +40,11 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase(Postgres·Auth�
 - `lib/types.ts` 화면용 타입
 - `app/page.tsx` 손님 피드 · `app/deals/[id]` 상세 · `app/stores/[id]` 가게 · `app/favorites` 찜·알림
 - `app/owner` 점주(화면 탭 이름은 '사장님'): 가게 등록 → 승인 대기(승인 알림 받기) → 게시. 운영자면 상단에 '운영자 화면' 버튼
+- `app/admin/stats` 운영 현황: 기획서 파일럿 지표(주간 게시·품절 비율·찜 손님·이번 주 올린 가게)를 목표와 비교, 주별 추이, 가게별 표 (`admin_store_stats`, `admin_weekly_stats`)
 - `app/admin` 운영자: 승인 대기/승인됨/반려 탭, 승인·반려·대기로 → `app/api/review/route.ts` 가 점주에게 푸시
 - `public/sw.js` 푸시 수신 서비스워커
 - `lib/push.ts` 알림 권한·구독 저장 · `app/api/notify/route.ts` 웹 푸시 발송(Vercel 서버, web-push)
-- `supabase/schema.sql` → `02_setup.sql` → (선택) `03_seed_demo.sql` → `04_push.sql` → `05_admin.sql` → `06_make_admin.sql` → `07_kakao.sql` → `08_account.sql` 순서로 실행
+- `supabase/schema.sql` → `02_setup.sql` → (선택) `03_seed_demo.sql` → `04_push.sql` → `05_admin.sql` → `06_make_admin.sql` → `07_kakao.sql` → `08_account.sql` → `09_stats.sql` 순서로 실행
   (05 는 반드시 STORE_COLS 코드가 배포된 뒤 실행: 예전 코드의 select('*') 가 막힘)
 
 ## 자동 알림 흐름
