@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
+import LegalFooter from "@/components/LegalFooter";
 import RegisterSW from "@/components/RegisterSW";
 import "./globals.css";
 
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh">
-        <div className="mx-auto max-w-md min-h-dvh safe-bottom">{children}</div>
+        <div className="mx-auto max-w-md min-h-dvh safe-bottom">
+          {children}
+          <LegalFooter />
+        </div>
         <BottomNav />
         <RegisterSW />
       </body>

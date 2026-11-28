@@ -43,7 +43,7 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase(Postgres·Auth�
 - `app/admin` 운영자: 승인 대기/승인됨/반려 탭, 승인·반려·대기로 → `app/api/review/route.ts` 가 점주에게 푸시
 - `public/sw.js` 푸시 수신 서비스워커
 - `lib/push.ts` 알림 권한·구독 저장 · `app/api/notify/route.ts` 웹 푸시 발송(Vercel 서버, web-push)
-- `supabase/schema.sql` → `02_setup.sql` → (선택) `03_seed_demo.sql` → `04_push.sql` → `05_admin.sql` → `06_make_admin.sql` → `07_kakao.sql` 순서로 실행
+- `supabase/schema.sql` → `02_setup.sql` → (선택) `03_seed_demo.sql` → `04_push.sql` → `05_admin.sql` → `06_make_admin.sql` → `07_kakao.sql` → `08_account.sql` 순서로 실행
   (05 는 반드시 STORE_COLS 코드가 배포된 뒤 실행: 예전 코드의 select('*') 가 막힘)
 
 ## 자동 알림 흐름
@@ -67,8 +67,16 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · Supabase(Postgres·Auth�
 - 새 가게 등록 → `/api/store-registered` → `claim_admin_targets()` → 운영자에게 '새 가게 승인 요청' 푸시
 - 확인 필요: 아이폰 홈 화면 앱에서 카카오 로그인 후 앱으로 제대로 돌아오는지
 
+## 약관·개인정보·계정 삭제
+- `/terms` 이용약관, `/privacy` 개인정보처리방침, `/account` 내 계정(로그인 상태·문서·문의·계정 삭제)
+- 운영자 정보(대왕푸드 / 보호책임자 이경수 / eco777@gmail.com / 시행일)는 `lib/legal.ts` 한 곳에서 관리
+- **수집 항목이나 외부 서비스가 바뀌면 `/privacy` 도 반드시 함께 고친다** (예: 지도 API, 분석 도구, 새 입력 칸)
+- 계정 삭제: 내 사진 폴더 삭제 → `delete_my_account()` → 가게·할인·찜·알림 기기 cascade 삭제. 운영자 계정은 앱에서 삭제 불가
+- 모든 화면 하단 `LegalFooter`, 카카오 버튼 아래 '로그인하면 약관 동의' 안내
+
 ## 다음 작업
 - [x] Supabase 연결, 가게 등록·승인, 사진 Storage, 실시간 피드
 - [x] 카카오 로그인 + 임시 계정 연결(linkIdentity) + 새 가게 운영자 알림
 - [x] 웹 푸시: 찜 → 권한 요청 → 구독 저장 → 게시 시 /api/notify 발송
 - [x] 운영자 가게 승인 화면 + 승인 결과 점주 알림
+- [x] 이용약관 · 개인정보처리방침 · 계정 삭제

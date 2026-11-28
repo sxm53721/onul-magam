@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { connectKakao } from "@/lib/auth";
 
@@ -29,6 +30,10 @@ export default function KakaoButton({ next, label = "카카오로 시작하기",
         {busy ? "카카오로 이동 중…" : label}
       </button>
       {error && <p className="mt-2 text-[12px] text-deal">{error}</p>}
+      <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
+        로그인하면 <Link href="/terms" className="underline">이용약관</Link>과{" "}
+        <Link href="/privacy" className="underline">개인정보처리방침</Link>에 동의하게 돼요.
+      </p>
     </div>
   );
 }

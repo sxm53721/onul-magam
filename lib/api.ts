@@ -387,6 +387,31 @@ export async function countPendingStores(): Promise<number> {
   return list.filter((s) => s.status === "pending").length;
 }
 
+/* ───────── 계정 삭제 ───────── */
+
+/**
+ * 내 계정 삭제(탈퇴).
+ * 1) 내 사진 폴더(deal-photos/<사용자번호>/)의 사진을 지우고
+ * 2) delete_my_account() 로 계정을 지우면 가게·할인·찜·알림 기기가 함께 지워진다.
+ */
+export async function deleteMyAccount(): Promise<void> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("로그인 정보가 없어요");
+
+  const bucket = supabase.storage.from(PHOTO_BUCKET);
+  // 사진은 최대 몇백 장이라 100장씩 나눠 지운다
+  for (let round = 0; round < 20; round++) {
+    const { data: files, error } = await bucket.list(uid, { limit: 100 });
+    if (error || !files || files.length === 0) break;
+    const { error: rmError } = await bucket.remove(files.map((f) => `${uid}/${f.name}`));
+    if (rmError) break;
+  }
+
+  const { error } = await supabase.rpc("delete_my_account");
+  fail(error, "계정 삭제");
+  await supabase.auth.signOut().catch(() => {});
+}
+
 /* ───────── 공통 ───────── */
 
 export const isLive = (d: Deal, now = Date.now()) => d.status === "active" && new Date(d.endsAt).getTime() > now;

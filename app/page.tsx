@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DealCard from "@/components/DealCard";
 import { ErrorBox } from "@/components/States";
 import { fetchTodayDeals, isLive } from "@/lib/api";
@@ -15,6 +15,14 @@ export default function HomeFeed() {
   const [area, setArea] = useState<Area | "all">("all");
   const [cat, setCat] = useState<Category | "all">("all");
   const [sort, setSort] = useState<Sort>("ending");
+  const [deleted, setDeleted] = useState(false);
+  useEffect(() => {
+    // 계정 삭제 직후 안내
+    if (new URLSearchParams(window.location.search).get("deleted") === "1") {
+      setDeleted(true);
+      window.history.replaceState(null, "", "/");
+    }
+  }, []);
 
   const { live, ended } = useMemo(() => {
     if (!data) return { live: [], ended: [] };
@@ -30,6 +38,11 @@ export default function HomeFeed() {
 
   return (
     <main className="px-4 pt-6">
+      {deleted && (
+        <p className="mb-4 rounded-xl bg-ink px-4 py-3 text-center text-[13px] text-paper" role="status">
+          계정이 삭제됐어요. 그동안 이용해 주셔서 감사해요.
+        </p>
+      )}
       <header className="mb-4">
         <p className="text-[13px] font-semibold text-leaf">영종도</p>
         <h1 className="text-[26px] font-extrabold tracking-tight">오늘 마감할인</h1>
